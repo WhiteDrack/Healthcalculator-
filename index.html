@@ -1,44 +1,39 @@
-
 <!DOCTYPE html>
 <html lang="hi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mobile AI Haircut Advisor</title>
-    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <title>AI Face Haircut Selector</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     
     <style>
         * { box-sizing: border-box; }
         body {
-            font-family: 'Segoe UI', Roboto, sans-serif;
-            background-color: #121212;
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #0f0f0f;
             color: white;
             text-align: center;
             margin: 0;
             padding: 10px;
-            overflow-x: hidden;
         }
+        h1 { font-size: 1.4rem; color: #00d1b2; margin: 10px 0; }
         
-        h1 { font-size: 1.5rem; margin: 15px 0; color: #00d1b2; }
-        p { font-size: 0.9rem; color: #bbb; }
-
-        /* Video Container Mobile Responsive */
         #container {
             position: relative;
-            width: 100%;
-            max-width: 400px; /* Mobile width limit */
+            width: 90%;
+            max-width: 350px;
+            aspect-ratio: 3/4;
             margin: 0 auto;
-            border: 3px solid #333;
-            border-radius: 20px;
+            border: 2px solid #00d1b2;
+            border-radius: 15px;
             overflow: hidden;
             background: #000;
-            aspect-ratio: 4/5; /* Mobile friendly aspect ratio */
         }
 
         video {
             width: 100%;
             height: 100%;
-            object-fit: cover; /* Camera feed pure box me fit hogi */
+            object-fit: cover;
         }
 
         canvas {
@@ -49,147 +44,126 @@
             height: 100%;
         }
 
-        /* Result Card Mobile Design */
-        #result-card {
-            width: 100%;
-            max-width: 400px;
-            margin: 20px auto;
-            background: #1e1e1e;
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            border-bottom: 4px solid #00d1b2;
-        }
-
-        .label {
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: #888;
-            margin-bottom: 5px;
-        }
-
-        .highlight {
-            color: #ffffff;
-            font-size: 1.2rem;
+        .btn-start {
+            background: #00d1b2;
+            color: black;
+            border: none;
+            padding: 12px 25px;
+            font-size: 1rem;
             font-weight: bold;
-            display: block;
-            margin-bottom: 15px;
+            border-radius: 25px;
+            margin: 15px 0;
+            cursor: pointer;
         }
 
-        .status-dot {
-            height: 10px;
-            width: 10px;
-            background-color: #ffdd57;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 5px;
+        #result-card {
+            width: 90%;
+            max-width: 350px;
+            margin: 15px auto;
+            background: #1e1e1e;
+            padding: 15px;
+            border-radius: 15px;
+            border: 1px solid #333;
         }
+
+        .label { color: #888; font-size: 0.8rem; text-transform: uppercase; margin-bottom: 5px; }
+        .highlight { color: #00d1b2; font-size: 1.1rem; font-weight: bold; display: block; margin-bottom: 10px; }
+        #status { color: #ffdd57; font-size: 0.8rem; }
     </style>
 </head>
 <body>
 
-    <h1>✂️ AI Haircut Guide</h1>
-    <p>Apna chehra frame ke beech mein rakhein</p>
-
+    <h1>✂️ AI Haircut Advisor</h1>
+    
     <div id="container">
         <video id="video" autoplay muted playsinline></video>
     </div>
 
+    <button class="btn-start" onclick="init()">Camera Shuru Karein</button>
+    <p id="status">Pehle button dabayein...</p>
+
     <div id="result-card">
-        <div style="margin-bottom: 10px;">
-            <span class="status-dot" id="dot"></span>
-            <span id="status" style="font-size: 0.8rem;">Models Loading...</span>
-        </div>
-        
         <div class="label">Face Shape</div>
         <span id="face-shape" class="highlight">Scanning...</span>
         
-        <div class="label">Best Cutting (Sujhav)</div>
+        <div class="label">Recommended Haircut</div>
         <span id="haircut-style" class="highlight">-</span>
     </div>
 
     <script>
         const video = document.getElementById('video');
-        const faceShapeEl = document.getElementById('face-shape');
-        const haircutEl = document.getElementById('haircut-style');
-        const statusEl = document.getElementById('status');
-        const dot = document.getElementById('dot');
+        const status = document.getElementById('status');
 
-        async function loadModels() {
-            const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+        async function init() {
+            status.innerText = "Models load ho rahe hain, thoda intezar karein...";
+            
+            // Models loading from a reliable CDN
+            const MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/';
+            
             try {
                 await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
                 await faceapi.nets.faceLandmarks68Net.loadFromUri(MODEL_URL);
-                statusEl.innerText = "Ready! Camera Shuru Ho Raha Hai...";
+                
+                status.innerText = "Camera access maanga ja raha hai...";
                 startVideo();
-            } catch (e) {
-                statusEl.innerText = "Model Load Error!";
+            } catch (err) {
+                status.innerText = "Error: Models load nahi ho paye. Internet check karein.";
+                console.error(err);
             }
         }
 
         function startVideo() {
-            // Mobile camera optimizations
-            const constraints = {
-                video: { 
-                    facingMode: "user",
-                    width: { ideal: 720 },
-                    height: { ideal: 1280 }
-                }
-            };
-
-            navigator.mediaDevices.getUserMedia(constraints)
-                .then(stream => {
-                    video.srcObject = stream;
-                    dot.style.backgroundColor = "#00d1b2";
-                    statusEl.innerText = "AI Active: Scanning...";
-                })
-                .catch(err => {
-                    statusEl.innerText = "Camera On Karein";
-                    console.error(err);
-                });
+            navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: "user" } 
+            })
+            .then(stream => {
+                video.srcObject = stream;
+                status.innerText = "AI Active! Face ko frame mein laayein.";
+                detectFace();
+            })
+            .catch(err => {
+                status.innerText = "Camera access denied or not found.";
+            });
         }
 
-        video.addEventListener('play', () => {
+        async function detectFace() {
             const canvas = faceapi.createCanvasFromMedia(video);
             document.getElementById('container').append(canvas);
-            
-            // Mobile screen size ke hisab se display set karein
             const displaySize = { width: video.offsetWidth, height: video.offsetHeight };
             faceapi.matchDimensions(canvas, displaySize);
 
             setInterval(async () => {
-                const detections = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
+                const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
                 
-                if (detections) {
-                    const landmarks = detections.landmarks;
+                if (detection) {
+                    const landmarks = detection.landmarks;
                     const jawline = landmarks.getJawline();
                     
+                    // Simple Calculation for Face Shape
                     const jawWidth = Math.abs(jawline[0].x - jawline[16].x);
                     const faceHeight = Math.abs(jawline[8].y - landmarks.getPositions()[27].y);
                     const ratio = faceHeight / jawWidth;
 
-                    let shape = "";
-                    let style = "";
+                    let shape = "Checking...";
+                    let style = "Scanning...";
 
-                    if (ratio > 1.45) {
+                    if (ratio > 1.5) {
                         shape = "Oval (Andakar)";
-                        style = "Side Part ya Pompadour";
-                    } else if (ratio < 1.25) {
+                        style = "Side Part, Pompadour, ya Fringe";
+                    } else if (ratio < 1.3) {
                         shape = "Round (Gol)";
-                        style = "Spiky ya High Fade";
+                        style = "High Fade, Spiky Hair, ya Quiff";
                     } else {
                         shape = "Square (Chaukore)";
-                        style = "Crew Cut ya Buzz Cut";
+                        style = "Buzz Cut, Crew Cut, ya Slicked Back";
                     }
 
-                    faceShapeEl.innerText = shape;
-                    haircutEl.innerText = style;
+                    document.getElementById('face-shape').innerText = shape;
+                    document.getElementById('haircut-style').innerText = style;
                 }
-            }, 600);
-        });
-
-        loadModels();
+            }, 1000);
+        }
     </script>
 </body>
 </html>
+
