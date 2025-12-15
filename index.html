@@ -2,111 +2,184 @@
 <html lang="hi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real-Time Orbital Scanner</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Hindi Live Scanner</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
     <style>
-        :root { --neon: #00f2ff; }
-        body { background: #000; color: white; font-family: sans-serif; text-align: center; margin: 0; overflow: hidden; }
-        .camera-container { position: relative; width: 100vw; height: 70vh; background: #111; }
-        video { width: 100%; height: 100%; object-fit: cover; }
-        #canvas-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-        .controls { height: 30vh; background: #111; padding: 20px; border-top: 2px solid var(--neon); }
-        .btn { background: var(--neon); color: black; border: none; padding: 15px 30px; border-radius: 50px; font-weight: bold; cursor: pointer; }
-        #result-display { margin-top: 15px; font-size: 1.2rem; color: var(--neon); font-family: monospace; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body, html { 
+            height: 100%; 
+            overflow: hidden; 
+            background: #000; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* Full Screen Video */
+        #video {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 1;
+        }
+
+        /* Overlay UI */
+        .ui-container {
+            position: relative;
+            z-index: 10;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            pointer-events: none; /* Allows touching video behind */
+        }
+
+        .header {
+            color: white;
+            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            margin-top: 20px;
+        }
+
+        /* Scanning Frame */
+        .scanner-frame {
+            width: 280px;
+            height: 180px;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 20px;
+            position: relative;
+            box-shadow: 0 0 0 5000px rgba(0, 0, 0, 0.4); /* Darkens outside frame */
+        }
+
+        .scanner-frame::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 2px;
+            background: #00ff00;
+            box-shadow: 0 0 15px #00ff00;
+            animation: scanAnim 2s infinite linear;
+        }
+
+        @keyframes scanAnim {
+            0% { top: 0; }
+            50% { top: 100%; }
+            100% { top: 0; }
+        }
+
+        /* Result Area */
+        #output-box {
+            background: rgba(255, 255, 255, 0.9);
+            width: 90%;
+            padding: 20px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            pointer-events: auto;
+            max-height: 150px;
+            overflow-y: auto;
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.3);
+        }
+
+        /* Button Styling */
+        #scan-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: bold;
+            pointer-events: auto;
+            margin-bottom: 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+            transition: 0.3s;
+        }
+
+        #scan-btn:active { transform: scale(0.9); }
+
+        .loader { font-size: 14px; color: #666; font-style: italic; }
     </style>
 </head>
 <body>
 
-<div class="camera-container">
     <video id="video" autoplay playsinline></video>
-    <canvas id="canvas-ui"></canvas>
-</div>
+    <canvas id="canvas" style="display:none;"></canvas>
 
-<div class="controls">
-    <button class="btn" onclick="initScanner()">ACTIVATE CAMERA</button>
-    <div id="result-display">POINT AT CENTER OF CODE</div>
-    <div id="debug" style="font-size: 10px; color: #555;">Scanning pixels...</div>
-</div>
+    <div class="ui-container">
+        <div class="header">
+            <h2>AI HINDI SCANNER</h2>
+            <p>Paper par focus karein</p>
+        </div>
 
-<script>
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas-ui');
-    const ctx = canvas.getContext('2d');
-    const resultDisplay = document.getElementById('result-display');
+        <div class="scanner-frame"></div>
 
-    async function initScanner() {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: "environment", width: 640, height: 640 } 
-            });
-            video.srcObject = stream;
-            requestAnimationFrame(processScan);
-        } catch (err) {
-            alert("Camera Error: " + err.message);
+        <div style="width: 100%; text-align: center;">
+            <button id="scan-btn">SCAN NOW</button>
+            <div id="output-box">
+                <p id="translated-text">Result yahan dikhega...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const scanBtn = document.getElementById('scan-btn');
+        const outputText = document.getElementById('translated-text');
+
+        // 1. Full Screen Camera
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } } 
+                });
+                video.srcObject = stream;
+            } catch (err) {
+                alert("Camera Error: " + err.message);
+            }
         }
-    }
 
-    function processScan() {
-        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        startCamera();
+
+        // 2. Scan Logic
+        scanBtn.addEventListener('click', () => {
+            outputText.innerHTML = '<span class="loader">Processing Text... Please wait...</span>';
+            
+            const canvas = document.getElementById('canvas');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
-            
-            const cx = canvas.width / 2;
-            const cy = canvas.height / 2;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
 
-            // 1. Draw Target UI
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.strokeStyle = "#00f2ff";
-            ctx.lineWidth = 2;
-            
-            // Draw Target Rings
-            for(let r=1; r<=5; r++) {
-                ctx.beginPath();
-                ctx.arc(cx, cy, r * 30, 0, Math.PI * 2);
-                ctx.stroke();
-            }
+            Tesseract.recognize(
+                canvas.toDataURL('image/jpeg', 0.8),
+                'eng',
+                { logger: m => console.log(m.status) }
+            ).then(({ data: { text } }) => {
+                if(text.trim() === "") {
+                    outputText.innerText = "Koi text nahi mila!";
+                } else {
+                    translateToHindi(text);
+                }
+            });
+        });
 
-            // 2. Pixel Sensing Logic (Yahi asli scanning hai)
-            // Hum center se bahar ki taraf rings ke color check kar rahe hain
-            let binaryResult = "";
-            const tempCanvas = document.createElement('canvas');
-            const tCtx = tempCanvas.getContext('2d');
-            tempCanvas.width = canvas.width;
-            tempCanvas.height = canvas.height;
-            tCtx.drawImage(video, 0, 0);
-
-            // 3 rings ka data check karte hain
-            for(let i=1; i<=3; i++) {
-                let pixel = tCtx.getImageData(cx, cy - (i * 30 + 10), 1, 1).data;
-                // Agar pixel ka rang dark hai (Kala) toh '1', warna '0'
-                let brightness = (pixel[0] + pixel[1] + pixel[2]) / 3;
-                binaryResult += (brightness < 100) ? "1" : "0";
-            }
-
-            // 3. Result Nikalein
-            if (binaryResult.includes("1")) {
-                resultDisplay.innerText = "CODE DETECTED: " + decodeBinary(binaryResult);
-                resultDisplay.style.color = "#00ff00";
-            } else {
-                resultDisplay.innerText = "ALIGNING...";
-                resultDisplay.style.color = "#00f2ff";
+        // 3. Translation
+        async function translateToHindi(text) {
+            const apiUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|hi`;
+            try {
+                const res = await fetch(apiUrl);
+                const data = await res.json();
+                outputText.innerHTML = `<strong>Hindi:</strong><br>${data.responseData.translatedText}`;
+            } catch (error) {
+                outputText.innerText = "Error: " + text;
             }
         }
-        requestAnimationFrame(processScan);
-    }
-
-    function decodeBinary(bin) {
-        // Yeh ek mapping hai jo binary ko text mein badalti hai
-        const codes = {
-            "111": "ADMIN-ACCESS",
-            "101": "USER-786",
-            "011": "VALID-KEY",
-            "110": "SECURE-ID"
-        };
-        return codes[bin] || "SCANNING...";
-    }
-</script>
-
+    </script>
 </body>
 </html>
 
