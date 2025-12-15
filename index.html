@@ -1,163 +1,184 @@
+
 <!DOCTYPE html>
 <html lang="hi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Style Master Pro - Powered by GPT</title>
+    <title>White Drack - AI Style Master Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection"></script>
-
+    
     <style>
-        :root { --neon: #00f2fe; --accent: #4facfe; --dark: #0f172a; }
-        body { font-family: 'Poppins', sans-serif; background: var(--dark); color: white; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
-        .container { width: 100%; max-width: 450px; }
+        :root { --neon: #00f2fe; --dark: #0f172a; --card: rgba(255, 255, 255, 0.05); }
+        body { font-family: 'Poppins', sans-serif; background: var(--dark); color: white; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        .container { width: 100%; max-width: 420px; }
         
-        #preview-wrap { 
-            width: 100%; height: 380px; background: #000; border-radius: 30px; 
-            position: relative; border: 2px solid var(--neon); overflow: hidden;
-            box-shadow: 0 0 20px rgba(0, 242, 254, 0.2);
-        }
+        /* Video Section */
+        #preview-wrap { width: 100%; height: 320px; background: #000; border-radius: 25px; position: relative; border: 2px solid var(--neon); overflow: hidden; margin-bottom: 10px; }
         video { width: 100%; height: 100%; object-fit: cover; }
         
-        .result-card { 
-            background: rgba(255,255,255,0.05); backdrop-filter: blur(15px); 
-            border-radius: 20px; padding: 20px; margin-top: -40px; position: relative; 
-            z-index: 10; border: 1px solid rgba(255,255,255,0.1); 
-        }
+        /* Chat History Box (Your Style) */
+        #chat-window { background: var(--card); height: 180px; overflow-y: auto; border-radius: 20px; padding: 15px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; scroll-behavior: smooth; }
+        .msg { margin-bottom: 12px; font-size: 14px; line-height: 1.5; padding: 10px; border-radius: 12px; }
+        .bot-msg { background: rgba(0, 242, 254, 0.1); border-left: 4px solid var(--neon); color: #e2e8f0; }
+        .user-msg { background: rgba(255, 255, 255, 0.1); text-align: right; margin-left: 20%; color: var(--neon); }
 
-        .mic-btn {
-            width: 65px; height: 65px; border-radius: 50%;
-            background: linear-gradient(135deg, #ff416c, #ff4b2b);
-            border: none; color: white; font-size: 28px; cursor: pointer;
-            margin: 20px auto; display: block; transition: 0.3s;
-            box-shadow: 0 0 15px rgba(255, 65, 108, 0.5);
-        }
-        .mic-active { animation: pulse 1s infinite; transform: scale(1.1); }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 65, 108, 0.7); } 100% { box-shadow: 0 0 0 15px rgba(255, 65, 108, 0); } }
+        /* Status & Stats */
+        .stats-row { display: flex; justify-content: space-between; padding: 0 10px 15px; }
+        .stat-item { text-align: center; }
+        .stat-item small { color: #888; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; }
+        .stat-item b { display: block; color: var(--neon); font-size: 16px; }
 
-        #chat-bubble {
-            background: rgba(0,0,0,0.4); padding: 15px; border-radius: 15px;
-            font-size: 14px; margin-top: 10px; border-left: 4px solid var(--neon);
-            min-height: 50px; line-height: 1.5; color: #e2e8f0;
-        }
-
-        .main-btn {
-            background: var(--neon); color: #000; border: none; padding: 15px;
-            border-radius: 12px; font-weight: bold; width: 100%; cursor: pointer;
-            margin-bottom: 10px; font-size: 16px;
-        }
+        /* Controls */
+        .btn-main { background: var(--neon); color: #000; border: none; padding: 14px; border-radius: 15px; width: 100%; font-weight: bold; cursor: pointer; font-size: 16px; margin-bottom: 15px; box-shadow: 0 4px 15px rgba(0, 242, 254, 0.3); }
+        .mic-btn { width: 70px; height: 70px; border-radius: 50%; background: linear-gradient(135deg, #ff416c, #ff4b2b); border: none; color: white; font-size: 28px; cursor: pointer; display: block; margin: auto; transition: 0.3s; box-shadow: 0 0 20px rgba(255, 65, 108, 0.4); }
+        .mic-active { animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 65, 108, 0.7); } 70% { transform: scale(1.1); box-shadow: 0 0 0 15px rgba(255, 65, 108, 0); } 100% { transform: scale(1); } }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <header style="text-align:center; margin-bottom:15px;">
-        <h1 style="color:var(--neon); margin:0; font-size:1.5rem;">STYLE AI EXPERT</h1>
-        <p style="color:#64748b; font-size:0.8rem;">Powered by Advanced AI Intelligence</p>
+    <header style="text-align: center; margin-bottom: 15px;">
+        <h1 style="color: var(--neon); margin: 0; font-size: 1.6rem; letter-spacing: 1px;">✂️ AI STYLE EXPERT</h1>
     </header>
 
     <div id="preview-wrap">
         <video id="video" autoplay playsinline muted></video>
     </div>
 
-    <div class="result-card">
-        <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
-            <div><small style="color:#888;">FACE SHAPE</small><br><b id="face-shape" style="color:var(--neon)">Scanning...</b></div>
-            <div style="text-align:right;"><small style="color:#888;">HAIRCUT</small><br><b id="haircut" style="color:var(--neon)">---</b></div>
+    <div class="stats-row">
+        <div class="stat-item">
+            <small>Shape</small>
+            <b id="face-shape">Waiting...</b>
         </div>
-        <div id="chat-bubble">Namaste! Pehle camera on karke face scan karein, phir mic dabakar mujhse kuch bhi puchiye.</div>
+        <div class="stat-item">
+            <small>Suggestion</small>
+            <b id="haircut">---</b>
+        </div>
     </div>
 
-    <div class="controls">
-        <button class="main-btn" onclick="startCamera()">📷 START AI SCANNER</button>
-        <button id="micBtn" class="mic-btn" onclick="listen()">🎤</button>
-        <p style="color:#64748b; font-size:12px; text-align:center;">Tap the microphone and ask a question</p>
+    <div id="chat-window">
+        <div class="msg bot-msg">Hello! Main <b>White Drack AI</b> hoon. 'START AI SCANNER' dabayein aur apna chehra dikhayein.</div>
     </div>
+
+    <button class="btn-main" onclick="startApp()">📷 START AI SCANNER</button>
+    <button id="micBtn" class="mic-btn" onclick="startVoice()">🎤</button>
+    <p style="text-align:center; font-size: 12px; color: #555; margin-top: 10px;">Powered by OpenRouter AI</p>
 </div>
 
 <script>
-    const API_KEY = "Sk-or-v1-4e4d78ffcdf24a8708d9ddc30629838e5bd1e3c7f0fa10f0f261966f338d1dc1";
+    // Aapki Working API Key
+    const API_KEY = "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";
     const video = document.getElementById('video');
-    const bubble = document.getElementById('chat-bubble');
+    const chatWindow = document.getElementById('chat-window');
     const micBtn = document.getElementById('micBtn');
+    
+    // Conversation History (Your Chatbot Logic)
+    let conversationHistory = [];
     let detector;
+    let currentFaceShape = "Unknown";
+    let currentHaircut = "None";
 
-    async function loadAI() {
-        const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
-        detector = await faceLandmarksDetection.createDetector(model, {
-            runtime: 'mediapipe',
-            solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh'
-        });
+    async function initAI() {
+        try {
+            const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
+            detector = await faceLandmarksDetection.createDetector(model, {
+                runtime: 'mediapipe',
+                solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh'
+            });
+        } catch (e) { console.error("Model Load Error"); }
     }
-    loadAI();
+    initAI();
 
-    async function startCamera() {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-        video.srcObject = stream;
-        setInterval(async () => {
-            const faces = await detector.estimateFaces(video);
-            if (faces.length > 0) {
-                const kp = faces[0].keypoints;
-                const r = Math.abs(kp[152].y - kp[10].y) / Math.abs(kp[454].x - kp[234].x);
-                let s = r > 1.55 ? "Oval" : (r < 1.35 ? "Round" : "Square");
-                let h = s === "Oval" ? "Side Part Pompadour" : (s === "Round" ? "High Fade Spiky" : "Buzz Cut");
-                document.getElementById('face-shape').innerText = s;
-                document.getElementById('haircut').innerText = h;
-            }
-        }, 1000);
+    async function startApp() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+            video.srcObject = stream;
+            appendMessage('bot', "Camera active! Main scan kar raha hoon...");
+            setInterval(scanFace, 1000);
+        } catch (e) { appendMessage('bot', "Error: Camera access nahi mila."); }
     }
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
+    async function scanFace() {
+        if (!detector) return;
+        const faces = await detector.estimateFaces(video);
+        if (faces.length > 0) {
+            const kp = faces[0].keypoints;
+            const r = Math.abs(kp[152].y - kp[10].y) / Math.abs(kp[454].x - kp[234].x);
+            
+            if (r > 1.55) { currentFaceShape = "Oval"; currentHaircut = "Side Part Pompadour"; }
+            else if (r < 1.35) { currentFaceShape = "Round"; currentHaircut = "High Fade Spiky"; }
+            else { currentFaceShape = "Square"; currentHaircut = "Crew Cut"; }
+
+            document.getElementById('face-shape').innerText = currentFaceShape;
+            document.getElementById('haircut').innerText = currentHaircut;
+        }
+    }
+
+    // --- Voice & OpenRouter Connection ---
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
     recognition.lang = 'hi-IN';
 
-    function listen() {
+    function startVoice() {
         recognition.start();
         micBtn.classList.add('mic-active');
-        bubble.innerText = "Sunte raheen...";
     }
 
-    recognition.onresult = async (e) => {
+    recognition.onresult = async (event) => {
         micBtn.classList.remove('mic-active');
-        const userQuery = e.results[0][0].transcript;
-        bubble.innerText = "AI soch raha hai...";
+        const userText = event.results[0][0].transcript;
+        appendMessage('user', userText);
         
-        const fShape = document.getElementById('face-shape').innerText;
-        const fCut = document.getElementById('haircut').innerText;
+        // Add to history
+        conversationHistory.push({ role: 'user', content: userText });
+        appendMessage('bot', "Thinking...");
 
-        // OpenRouter API Call (GPT-4 / DeepSeek)
         try {
             const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
                 headers: {
                     "Authorization": `Bearer ${API_KEY}`,
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": window.location.origin, // Safety for OpenRouter
                 },
                 body: JSON.stringify({
-                    "model": "google/gemini-2.0-flash-exp:free", // Aap yahan model change kar sakte hain
+                    "model": "google/gemini-2.0-flash-exp:free", // Free & Fast model
                     "messages": [
-                        {"role": "system", "content": `You are a professional celebrity barber. The user has an ${fShape} face and suggested cut is ${fCut}. Answer the user's question in a friendly Hindi and give styling tips.`},
-                        {"role": "user", "content": userQuery}
+                        { "role": "system", "content": `You are 'White Drack AI', a celebrity barber expert. The user has a ${currentFaceShape} face shape. Your suggestion is ${currentHaircut}. Answer in Hindi professionally.` },
+                        ...conversationHistory
                     ]
                 })
             });
 
             const data = await response.json();
-            const reply = data.choices[0].message.content;
-            speak(reply);
+            const aiReply = data.choices[0].message.content;
+            
+            // Replace "Thinking..." with real reply
+            chatWindow.lastElementChild.remove();
+            appendMessage('bot', aiReply);
+            conversationHistory.push({ role: 'assistant', content: aiReply });
+            
+            // Text to Speech
+            const utter = new SpeechSynthesisUtterance(aiReply);
+            utter.lang = 'hi-IN';
+            window.speechSynthesis.speak(utter);
+
         } catch (err) {
-            speak("Maaf kijiye, main connect nahi ho paa raha hoon. Internet check karein.");
+            chatWindow.lastElementChild.remove();
+            appendMessage('bot', "API Connection Error. Internet ya Key check karein.");
+            console.error(err);
         }
     };
 
-    function speak(txt) {
-        bubble.innerText = txt;
-        const msg = new SpeechSynthesisUtterance(txt);
-        msg.lang = 'hi-IN';
-        window.speechSynthesis.speak(msg);
+    function appendMessage(sender, text) {
+        const div = document.createElement('div');
+        div.className = `msg ${sender}-msg`;
+        div.innerHTML = text;
+        chatWindow.appendChild(div);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
     }
 </script>
 </body>
 </html>
-
