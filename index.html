@@ -1,127 +1,277 @@
+
 <!DOCTYPE html>
 <html lang="hi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Haircut - Fixed Version</title>
+    <title>Premium AI Haircut Advisor</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection"></script>
 
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: white; text-align: center; margin: 0; padding: 20px; }
-        .card { background: #1e1e1e; padding: 20px; border-radius: 20px; max-width: 400px; margin: auto; border: 1px solid #333; }
-        h1 { color: #00d1b2; font-size: 1.5rem; }
-        
-        #preview-container { width: 100%; height: 300px; background: #000; border-radius: 15px; margin-bottom: 15px; overflow: hidden; position: relative; border: 2px dashed #444; }
-        img, video { width: 100%; height: 100%; object-fit: cover; display: none; }
-        
-        .btn { background: #00d1b2; color: black; border: none; padding: 12px 20px; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; margin: 5px 0; }
-        .upload-btn { background: #444; color: white; }
-        
-        #result { margin-top: 20px; text-align: left; background: #252525; padding: 15px; border-radius: 10px; }
-        .label { font-size: 12px; color: #888; }
-        .value { font-size: 18px; font-weight: bold; color: #00d1b2; display: block; margin-bottom: 10px; }
+        :root {
+            --primary: #00f2fe;
+            --secondary: #4facfe;
+            --bg: #0f172a;
+            --card-bg: rgba(255, 255, 255, 0.05);
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: radial-gradient(circle at top, #1e293b, var(--bg));
+            color: white;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 450px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        header {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            margin: 0;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .main-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 30px;
+            padding: 10px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        #preview-box {
+            width: 100%;
+            height: 380px;
+            background: #000;
+            border-radius: 25px;
+            overflow: hidden;
+            position: relative;
+            border: 2px solid rgba(0, 242, 254, 0.3);
+        }
+
+        video, img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 25px;
+        }
+
+        /* Scanning Animation Line */
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--primary);
+            box-shadow: 0 0 15px var(--primary);
+            animation: scan 3s linear infinite;
+            z-index: 10;
+            display: none;
+        }
+
+        @keyframes scan {
+            0% { top: 0; }
+            100% { top: 100%; }
+        }
+
+        .controls {
+            padding: 20px 10px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--secondary), var(--primary));
+            color: #000;
+            border: none;
+            padding: 15px;
+            border-radius: 15px;
+            font-weight: 700;
+            width: 100%;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: transform 0.2s;
+            font-size: 1rem;
+        }
+
+        .btn:active { transform: scale(0.98); }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+        }
+
+        #result-panel {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .info-stat {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 15px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            text-align: left;
+        }
+
+        .info-stat label {
+            font-size: 0.7rem;
+            color: #94a3b8;
+            text-transform: uppercase;
+        }
+
+        .info-stat span {
+            display: block;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #f8fafc;
+            margin-top: 5px;
+        }
+
+        .status-badge {
+            font-size: 12px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            background: rgba(0, 242, 254, 0.1);
+            color: var(--primary);
+            margin-top: 10px;
+            display: inline-block;
+        }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <h1>✂️ AI Haircut Advisor</h1>
-        
-        <div id="preview-container">
-            <p id="placeholder" style="margin-top: 130px; color: #666;">Photo upload karein ya camera shuru karein</p>
-            <video id="video" autoplay playsinline></video>
-            <img id="output-img" />
-        </div>
+    <div class="app-container">
+        <header>
+            <h1>✂️ Style AI</h1>
+            <p style="color: #64748b; font-size: 0.9rem;">Find your perfect haircut</p>
+        </header>
 
-        <button class="btn" onclick="startCamera()">📷 Camera Shuru Karein</button>
-        
-        <label class="btn upload-btn">
-            📁 Gallery se Photo Chunein
-            <input type="file" accept="image/*" onchange="handleImage(this)" style="display:none;">
-        </label>
+        <div class="main-card">
+            <div id="preview-box">
+                <div class="scan-line" id="scanner"></div>
+                <video id="video" autoplay playsinline></video>
+                <img id="output-img" style="display:none;" />
+                <div id="msg" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; width:80%;">
+                    <p style="color:#475569;">Ready to analyze...</p>
+                </div>
+            </div>
 
-        <div id="result">
-            <span class="label">FACE SHAPE:</span>
-            <span id="face-shape" class="value">Awaiting Input...</span>
-            
-            <span class="label">BEST HAIRCUT:</span>
-            <span id="haircut" class="value">-</span>
+            <div class="controls">
+                <button class="btn" onclick="startCamera()">
+                    <span>📷</span> LIVE CAMERA SCAN
+                </button>
+                
+                <label class="btn btn-outline">
+                    <span>📁</span> UPLOAD FROM GALLERY
+                    <input type="file" accept="image/*" onchange="handleImage(this)" style="display:none;">
+                </label>
+
+                <div id="result-panel">
+                    <div class="info-stat">
+                        <label>Face Shape</label>
+                        <span id="face-shape">---</span>
+                    </div>
+                    <div class="info-stat">
+                        <label>Style Tip</label>
+                        <span id="haircut">---</span>
+                    </div>
+                </div>
+
+                <center><span id="status" class="status-badge">System Idle</span></center>
+            </div>
         </div>
-        <p id="status" style="font-size: 12px; color: #ffdd57;"></p>
     </div>
 
     <script>
         const video = document.getElementById('video');
         const img = document.getElementById('output-img');
+        const scanner = document.getElementById('scanner');
         const status = document.getElementById('status');
         let detector;
 
-        // AI Model Load Karo
-        async function loadModel() {
-            status.innerText = "AI Model taiyar ho raha hai...";
+        async function init() {
             const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
             detector = await faceLandmarksDetection.createDetector(model, {
                 runtime: 'mediapipe',
                 solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh'
             });
-            status.innerText = "Model Ready!";
+            status.innerText = "AI System Ready";
         }
-        loadModel();
+        init();
 
-        // Camera Function
         async function startCamera() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
                 video.srcObject = stream;
                 video.style.display = "block";
                 img.style.display = "none";
-                document.getElementById('placeholder').style.display = "none";
-                status.innerText = "Scanning...";
-                setInterval(analyzeFace, 1000);
+                scanner.style.display = "block";
+                document.getElementById('msg').style.display = "none";
+                status.innerText = "Analyzing Face...";
+                setInterval(analyze, 1000);
             } catch (err) {
-                alert("Camera permission block hai! Settings mein jaakar 'Allow' karein ya Photo upload karein.");
+                alert("Camera access required!");
             }
         }
 
-        // Image Upload Function
         function handleImage(input) {
             const file = input.files[0];
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = (e) => {
                 img.src = e.target.result;
                 img.style.display = "block";
                 video.style.display = "none";
-                document.getElementById('placeholder').style.display = "none";
-                img.onload = () => analyzeFace(img);
+                scanner.style.display = "block";
+                document.getElementById('msg').style.display = "none";
+                img.onload = () => analyze(img);
             }
             reader.readAsDataURL(file);
         }
 
-        async function analyzeFace(source = video) {
+        async function analyze(src = video) {
             if (!detector) return;
-            const faces = await detector.estimateFaces(source);
-            
+            const faces = await detector.estimateFaces(src);
             if (faces.length > 0) {
-                const keypoints = faces[0].keypoints;
-                const width = Math.abs(keypoints[454].x - keypoints[234].x);
-                const height = Math.abs(keypoints[152].y - keypoints[10].y);
-                const ratio = height / width;
+                const kp = faces[0].keypoints;
+                const w = Math.abs(kp[454].x - kp[234].x);
+                const h = Math.abs(kp[152].y - kp[10].y);
+                const r = h / w;
 
-                let shape = "Detecting...";
-                let style = "...";
+                let s = "Oval", t = "Side Part";
+                if (r < 1.3) { s = "Round"; t = "High Fade"; }
+                else if (r < 1.4) { s = "Square"; t = "Crew Cut"; }
 
-                if (ratio > 1.5) { shape = "Oval (Andakar)"; style = "Side Part / Pompadour"; }
-                else if (ratio < 1.3) { shape = "Round (Gol)"; style = "Spiky / High Fade"; }
-                else { shape = "Square (Chaukore)"; style = "Crew Cut / Slicked Back"; }
-
-                document.getElementById('face-shape').innerText = shape;
-                document.getElementById('haircut').innerText = style;
-                status.innerText = "Scan Complete!";
+                document.getElementById('face-shape').innerText = s;
+                document.getElementById('haircut').innerText = t;
+                status.innerText = "Analysis Complete";
             }
         }
     </script>
 </body>
 </html>
-
