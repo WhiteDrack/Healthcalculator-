@@ -3,126 +3,154 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Style Master - Ultimate Fix</title>
+    <title>White Drack - AI Style Master</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection"></script>
-
+    
     <style>
         :root { --neon: #00f2fe; --dark: #0f172a; }
-        body { font-family: 'Poppins', sans-serif; background: var(--dark); color: white; margin: 0; padding: 15px; text-align: center; }
-        .container { width: 100%; max-width: 400px; margin: auto; }
-        #video-wrap { width: 100%; height: 350px; background: #000; border-radius: 25px; position: relative; border: 2px solid var(--neon); overflow: hidden; margin-bottom: 20px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--dark); color: white; margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
+        .app-container { width: 100%; max-width: 450px; }
+        
+        /* Video Section */
+        #video-wrap { width: 100%; height: 300px; background: #000; border-radius: 20px; position: relative; border: 2px solid var(--neon); overflow: hidden; margin-bottom: 15px; }
         video { width: 100%; height: 100%; object-fit: cover; }
-        .result-card { background: rgba(255,255,255,0.07); backdrop-filter: blur(10px); border-radius: 20px; padding: 15px; border: 1px solid rgba(255,255,255,0.1); }
-        .btn { background: var(--neon); color: #000; border: none; padding: 12px; border-radius: 12px; width: 100%; font-weight: bold; cursor: pointer; margin: 10px 0; }
-        .mic-btn { width: 60px; height: 60px; border-radius: 50%; background: #ff416c; border: none; font-size: 24px; cursor: pointer; box-shadow: 0 0 15px rgba(255,65,108,0.5); }
-        .mic-active { animation: pulse 1s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
-        #chat-bubble { background: rgba(0,0,0,0.4); padding: 12px; border-radius: 12px; margin-top: 10px; border-left: 4px solid var(--neon); font-size: 13px; min-height: 40px; }
+        
+        /* Chat History Box */
+        #chat-window { background: rgba(255,255,255,0.05); height: 200px; overflow-y: auto; border-radius: 15px; padding: 10px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.1); font-size: 14px; }
+        .msg { margin-bottom: 10px; padding: 8px 12px; border-radius: 10px; line-height: 1.4; }
+        .bot-msg { background: rgba(0, 242, 254, 0.1); border-left: 3px solid var(--neon); text-align: left; }
+        .user-msg { background: rgba(255,255,255,0.1); text-align: right; margin-left: 20%; }
+
+        /* Controls */
+        .btn-group { display: flex; gap: 10px; margin-bottom: 10px; }
+        .btn { flex: 1; background: var(--neon); color: #000; border: none; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer; }
+        .mic-btn { width: 60px; height: 60px; border-radius: 50%; background: #ff416c; border: none; color: white; font-size: 24px; cursor: pointer; display: block; margin: auto; }
+        .mic-active { animation: pulse 1s infinite; box-shadow: 0 0 15px #ff416c; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2 style="color:var(--neon)">✂️ AI STYLE EXPERT</h2>
-    
+<div class="app-container">
+    <h2 style="color:var(--neon); text-align:center;">WHITE DRACK STYLE AI</h2>
+
     <div id="video-wrap">
         <video id="video" autoplay playsinline muted></video>
     </div>
 
-    <div class="result-card">
-        <div style="display:flex; justify-content:space-between">
-            <div style="text-align:left"><small>SHAPE</small><br><b id="face-shape">Ready</b></div>
-            <div style="text-align:right"><small>STYLE</small><br><b id="haircut">---</b></div>
-        </div>
-        <div id="chat-bubble">Namaste! "Start" dabayein aur mic se puchiye.</div>
+    <div id="chat-window">
+        <div class="msg bot-msg">Hello! Main White Drack AI hoon. 'Start Scanner' dabayein taaki main aapka chehra dekh sakun.</div>
     </div>
 
-    <button class="btn" onclick="startApp()">START AI SCANNER</button>
-    <button id="micBtn" class="mic-btn" onclick="startMic()">🎤</button>
-    <p style="font-size: 11px; color: #888;">Powered by DeepSeek AI</p>
+    <div class="btn-group">
+        <button class="btn" onclick="startSystem()">📷 START SCANNER</button>
+    </div>
+
+    <button id="micBtn" class="mic-btn" onclick="startVoice()">🎤</button>
+    <p style="text-align:center; font-size: 11px; color: #888; margin-top: 10px;">Face Shape: <span id="face-display">Scanning...</span></p>
 </div>
 
 <script>
-    // Aapki API Key
-    const API_KEY = "Sk-or-v1-4e4d78ffcdf24a8708d9ddc30629838e5bd1e3c7f0fa10f0f261966f338d1dc1";
+    const API_KEY = "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";
     const video = document.getElementById('video');
-    const bubble = document.getElementById('chat-bubble');
-    let detector;
+    const chatWindow = document.getElementById('chat-window');
+    const micBtn = document.getElementById('micBtn');
+    
+    // Aapka history logic
+    let conversationHistory = [
+        { role: 'assistant', content: "Namaste! Main aapka AI barber hoon. Poochiye aapko kaisi cutting chahiye?" }
+    ];
 
-    async function startApp() {
-        bubble.innerText = "System load ho raha hai...";
+    let detector;
+    let currentFaceShape = "Unknown";
+
+    // AI Detector Load Karein
+    async function initAI() {
         try {
             const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
             detector = await faceLandmarksDetection.createDetector(model, {
                 runtime: 'mediapipe',
                 solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh'
             });
+        } catch (e) { appendMessage('bot', "System load hone mein dikkat hai. Refresh karein."); }
+    }
+    initAI();
 
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-            video.srcObject = stream;
-            bubble.innerText = "AI Active! Ab puchiye.";
-            setInterval(scan, 1000);
-        } catch (e) {
-            bubble.innerText = "Error: Camera ya System load nahi hua.";
-        }
+    async function startSystem() {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+        video.srcObject = stream;
+        setInterval(scanFace, 1000);
     }
 
-    async function scan() {
+    async function scanFace() {
         if (!detector) return;
         const faces = await detector.estimateFaces(video);
         if (faces.length > 0) {
             const kp = faces[0].keypoints;
             const r = Math.abs(kp[152].y - kp[10].y) / Math.abs(kp[454].x - kp[234].x);
-            let s = r > 1.5 ? "Oval" : (r < 1.3 ? "Round" : "Square");
-            document.getElementById('face-shape').innerText = s;
-            document.getElementById('haircut').innerText = s === "Oval" ? "Side Part" : "High Fade";
+            currentFaceShape = r > 1.5 ? "Oval" : (r < 1.3 ? "Round" : "Square");
+            document.getElementById('face-display').innerText = currentFaceShape;
         }
     }
 
-    // Voice & API Logic
+    // Voice & Chat Logic
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
     recognition.lang = 'hi-IN';
 
-    function startMic() {
+    function startVoice() {
         recognition.start();
-        document.getElementById('micBtn').classList.add('mic-active');
+        micBtn.classList.add('mic-active');
     }
 
-    recognition.onresult = async (e) => {
-        document.getElementById('micBtn').classList.remove('mic-active');
-        const userMsg = e.results[0][0].transcript;
-        bubble.innerText = "AI Soch raha hai...";
+    recognition.onresult = async (event) => {
+        micBtn.classList.remove('mic-active');
+        const userText = event.results[0][0].transcript;
+        appendMessage('user', userText);
+        
+        // Add to history
+        conversationHistory.push({ role: 'user', content: userText });
 
+        // Call API
         try {
             const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
                 headers: {
                     "Authorization": `Bearer ${API_KEY}`,
-                    "HTTP-Referer": window.location.href, // OpenRouter ke liye zaroori
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    "model": "google/gemini-2.0-flash-exp:free",
-                    "messages": [
-                        {"role": "system", "content": "You are a friendly expert barber. Answer in Hindi based on face shape: " + document.getElementById('face-shape').innerText},
-                        {"role": "user", "content": userMsg}
+                    model: "openai/gpt-3.5-turbo",
+                    messages: [
+                        { role: 'system', content: `You are a professional barber. User's face is ${currentFaceShape}. Help them with styling. Answer in Hindi.` },
+                        ...conversationHistory
                     ]
                 })
             });
             const data = await res.json();
             const reply = data.choices[0].message.content;
-            bubble.innerText = reply;
             
-            const speak = new SpeechSynthesisUtterance(reply);
-            speak.lang = 'hi-IN';
-            window.speechSynthesis.speak(speak);
-        } catch (err) {
-            bubble.innerText = "API Connect Error. Key check karein.";
-        }
+            appendMessage('bot', reply);
+            conversationHistory.push({ role: 'assistant', content: reply });
+            speak(reply);
+        } catch (e) { appendMessage('bot', "Maaf kijiye, connection fail ho gaya."); }
     };
+
+    function appendMessage(sender, text) {
+        const div = document.createElement('div');
+        div.className = `msg ${sender}-msg`;
+        div.innerText = text;
+        chatWindow.appendChild(div);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    function speak(text) {
+        const synth = window.speechSynthesis;
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = 'hi-IN';
+        synth.speak(utter);
+    }
 </script>
 </body>
 </html>
-
